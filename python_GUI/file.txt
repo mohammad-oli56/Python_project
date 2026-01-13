@@ -1,0 +1,152 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageTk
+import os
+import shutil
+
+# ইমেজ সেভ করার জন্য ফোল্ডার তৈরি
+if not os.path.exists("saved_images"):
+    os.makedirs("saved_images")
+
+class ModernPhoneBook:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Modern Phone Book")
+        self.root.geometry("450x700")
+        self.root.configure(bg="#f0f2f5")
+
+        self.image_path = ""
+        self.all_contacts = []
+
+        # --- স্টাইলিশ হেডার ---
+        header = tk.Label(root, text="Contact Manager", font=("Helvetica", 18, "bold"), bg="#1877f2", fg="white", pady=10)
+        header.pack(fill="x")
+
+        # --- ইনপুট ফ্রেম ---
+        input_frame = tk.Frame(root, bg="#f0f2f5", pady=15)
+        input_frame.pack()
+
+        tk.Label(input_frame, text="Full Name", bg="#f0f2f5", font=("Arial", 10)).grid(row=0, column=0, sticky="w")
+        self.name_entry = tk.Entry(input_frame, width=35, font=("Arial", 11), relief="flat")
+        self.name_entry.grid(row=1, column=0, pady=5, padx=5)
+
+        tk.Label(input_frame, text="Phone Number", bg="#f0f2f5", font=("Arial", 10)).grid(row=2, column=0, sticky="w")
+        self.phone_entry = tk.Entry(input_frame, width=35, font=("Arial", 11), relief="flat")
+        self.phone_entry.grid(row=3, column=0, pady=5, padx=5)
+
+        # ইমেজ প্রিভিউ এরিয়া
+        self.img_label = tk.Label(input_frame, text="No Photo", bg="#dfe3ee", width=12, height=4, font=("Arial", 9))
+        self.img_label.grid(row=4, column=0, pady=10)
+
+        # বাটন গ্রুপ
+        btn_frame = tk.Frame(input_frame, bg="#f0f2f5")
+        btn_frame.grid(row=5, column=0)
+
+        tk.Button(btn_frame, text="📷 Photo", command=self.select_image, bg="#606770", fg="white", width=10, relief="flat").pack(side="left", padx=5)
+        tk.Button(btn_frame, text="💾 Save", command=self.save_contact, bg="#42b72a", fg="white", width=10, relief="flat", font=("Arial", 10, "bold")).pack(side="left", padx=5)
+
+        # --- সার্চ এবং লিস্ট ফ্রেম ---
+        list_frame = tk.Frame(root, bg="white", padx=10, pady=10)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # এখানে 'sticky' এর বদলে 'anchor' ব্যবহার করা হয়েছে এরর ফিক্স করতে
+        tk.Label(list_frame, text="Quick Search", bg="white", font=("Arial", 9, "italic")).pack(anchor="w")
+        self.search_entry = tk.Entry(list_frame, font=("Arial", 11), bg="#f0f2f5", relief="flat")
+        self.search_entry.pack(fill="x", pady=5)
+        self.search_entry.bind("<KeyRelease>", self.search_contact)
+
+        # কন্টাক্ট লিস্টবক্স (Scrollbar সহ)
+        scrollbar_frame = tk.Frame(list_frame)
+        scrollbar_frame.pack(fill="both", expand=True)
+
+        scrollbar = tk.Scrollbar(scrollbar_frame)
+        scrollbar.pack(side="right", fill="y")
+
+        self.contact_listbox = tk.Listbox(scrollbar_frame, font=("Arial", 11), relief="flat", height=10, selectbackground="#1877f2", yscrollcommand=scrollbar.set)
+        self.contact_listbox.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=self.contact_listbox.yview)
+
+        # ডিলিট বাটন
+        tk.Button(root, text="🗑 Delete Selected Contact", command=self.delete_contact, bg="#fa3e3e", fg="white", relief="flat", pady=8).pack(fill="x", padx=20, pady=10)
+
+        self.load_contacts()
+
+    def select_image(self):
+        path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.png *.jpeg")])
+        if path:
+            self.image_path = path
+            img = Image.open(path).resize((80, 80), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            self.img_label.config(image=photo, text="")
+            self.img_label.image = photo
+
+    def save_contact(self):
+        name, phone = self.name_entry.get().strip(), self.phone_entry.get().strip()
+        if not name or not phone or not self.image_path:
+            messagebox.showwarning("Incomplete", "সব তথ্য পূরণ করুন এবং একটি ছবি সিলেক্ট করুন!")
+            return
+
+        dest = os.path.join("saved_images", f"{name}_{phone}.jpg")
+        shutil.copy(self.image_path, dest)
+
+        with open("contacts.txt", "a") as f:
+            f.write(f"{name}|{phone}|{dest}\n")
+
+        self.load_contacts()
+        self.clear_fields()
+        messagebox.showinfo("Done", "কন্টাক্ট সফলভাবে সেভ হয়েছে!")
+
+    def load_contacts(self):
+        self.all_contacts = []
+        self.contact_listbox.delete(0, tk.END)
+        if os.path.exists("contacts.txt"):
+            with open("contacts.txt", "r") as f:
+                for line in f:
+                    data = line.strip().split("|")
+                    if len(data) == 3:
+                        self.all_contacts.append(data)
+                        self.contact_listbox.insert(tk.END, f"  👤 {data[0]}  -  {data[1]}")
+
+    def search_contact(self, event):
+        query = self.search_entry.get().lower()
+        self.contact_listbox.delete(0, tk.END)
+        for c in self.all_contacts:
+            if query in c[0].lower() or query in c[1]:
+                self.contact_listbox.insert(tk.END, f"  👤 {c[0]}  -  {c[1]}")
+
+    def delete_contact(self):
+        selected_index = self.contact_listbox.curselection()
+        if not selected_index:
+            messagebox.showwarning("Selection", "মুছে ফেলার জন্য একটি কন্টাক্ট সিলেক্ট করুন।")
+            return
+
+        selected_text = self.contact_listbox.get(selected_index)
+        
+        if messagebox.askyesno("Confirm", f"আপনি কি নিশ্চিত যে আপনি এটি মুছে ফেলতে চান?\n{selected_text}"):
+            # লিস্টবক্স থেকে সিলেক্ট করা নাম বের করা
+            selected_name = selected_text.split("  -  ")[0].replace("  👤 ", "").strip()
+            
+            new_contacts = []
+            for c in self.all_contacts:
+                if c[0] != selected_name:
+                    new_contacts.append(f"{c[0]}|{c[1]}|{c[2]}\n")
+                else:
+                    # ইমেজ ফাইলটি ডিলিট করা
+                    if os.path.exists(c[2]):
+                        os.remove(c[2])
+
+            with open("contacts.txt", "w") as f:
+                f.writelines(new_contacts)
+            
+            self.load_contacts()
+
+    def clear_fields(self):
+        self.name_entry.delete(0, tk.END)
+        self.phone_entry.delete(0, tk.END)
+        self.img_label.config(image='', text="No Photo")
+        self.image_path = ""
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ModernPhoneBook(root)
+    root.mainloop()
