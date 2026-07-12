@@ -9,7 +9,7 @@ if not os.path.exists("saved_images"):
     os.makedirs("saved_images")
 
 class ModernPhoneBook:
-    def __init__(self, root):
+    def __init__(self, root): 
         self.root = root 
         self.root.title("Modern Phone Book")
         self.root.geometry("450x700") 
